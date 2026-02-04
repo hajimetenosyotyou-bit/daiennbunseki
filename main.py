@@ -4,57 +4,59 @@ import google.generativeai as genai
 from playwright.sync_api import sync_playwright
 
 def run_agent():
-    # Gemini設定（最新の安定版モデルを使用）
+    # Gemini 1.5 Flash の設定
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
     model = genai.GenerativeModel('gemini-1.5-flash-latest')
 
     with sync_playwright() as p:
-        print("ブラウザを起動します（Googleにはアクセスしません）")
+        print("ブラウザを起動中...")
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context(viewport={'width': 1280, 'height': 800})
+        context = browser.new_context(user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/121.0.0.0")
         page = context.new_page()
 
-        # 【重要】Googleではなく、直接MEOダッシュボードのログインページへ行く
-        print("目標URL: https://app.meo-dash.com/users/sign_in へ移動中...")
+        print("MEOダッシュボードへ移動...")
         page.goto("https://app.meo-dash.com/users/sign_in", wait_until="networkidle")
 
         try:
-            # メアド入力枠が出るまで最大30秒待つ
-            page.wait_for_selector('input[name="user[email]"]', timeout=30000)
-            
-            print("MEOダッシュボードのID/パスワードを入力中...")
-            # MEOチェキ専用の入力項目名に合わせて指定
-            page.fill('input[name="user[email]"]', os.environ["GOOGLE_ID"]) # Secretsの中身(hikaruoota11)
-            page.fill('input[name="user[password]"]', os.environ["GOOGLE_PW"]) # Secretsの中身(nyanntarunn)
-            
-            print("ログインボタンをクリック...")
-            page.click('input[name="commit"]') 
+            # ログイン処理（網を広げて探す設定を継続）
+            print("ログイン情報を入力中...")
+            page.wait_for_selector('input[name*="email"], input[type="email"]', timeout=30000)
+            page.fill('input[name*="email"], input[type="email"]', os.environ["GOOGLE_ID"])
+            page.fill('input[type="password"]', os.environ["GOOGLE_PW"])
+            page.click('input[type="submit"], button[type="submit"]')
 
-            # ログイン後のダッシュボード画面が表示されるのを待つ
-            print("ログイン後の画面を読み込み中...")
+            # ログイン後のデータ読み込み待ち
+            print("ダッシュボードのデータを読み込み中...")
             page.wait_for_load_state("networkidle")
-            page.wait_for_timeout(10000) # グラフなどが表示されるまで10秒待つ
-            
-            # 撮影
-            screenshot_path = "meo_report.png"
-            page.screenshot(path=screenshot_path, full_page=True)
-            print("撮影完了。AIによる分析を開始します。")
+            page.wait_for_timeout(10000) # グラフや表が確定するまで待機
 
-            # AI分析
-            sample_file = genai.upload_file(path=screenshot_path)
-            response = model.generate_content([sample_file, "このMEOレポートの数値を読み取り、日本語で短く要約してください。"])
+            # 【ここが重要】撮影ではなく、画面上の「全テキスト」を取得
+            print("画面上のテキストデータを抽出しています...")
+            all_text = page.inner_text('body') 
+
+            # AIにテキストデータを渡して分析
+            print("Geminiがテキストデータを直接分析中...")
+            prompt = f"""
+            以下のMEOダッシュボードから抽出されたテキストデータから、
+            「検索数」「閲覧数」「アクション数（通話やルート）」などの主要な数値を抜き出し、
+            日本語で分かりやすく要約してスプレッドシート形式の報告文を作成してください。
             
+            データ内容:
+            {all_text}
+            """
+            
+            response = model.generate_content(prompt)
+            print(f"分析完了: {response.text[:100]}...") # 冒頭だけ表示
+
             # スプレッドシートへ送信
-            print("スプレッドシート（f1836014のアカウントが持つシート）へ結果を送信中...")
+            print("結果をスプレッドシートへ送信中...")
             requests.post(os.environ["GAS_URL"], json={"message": response.text})
-            
-            print("すべて完了しました！成功です。")
+            print("完了しました！")
 
         except Exception as e:
-            print(f"途中でエラーが発生しました: {e}")
-            # どこで止まったか確認するために証拠写真を撮る
-            page.screenshot(path="error_at_meo.png")
-
+            print(f"エラー発生: {e}")
+            # トラブル時のみ、状況確認用に撮影して保存
+            page.screenshot(path="debug_error.png")
         finally:
             browser.close()
 
