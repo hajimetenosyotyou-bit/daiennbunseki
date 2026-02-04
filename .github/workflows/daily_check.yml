@@ -22,5 +22,5 @@ jobs:
           GAS_URL: ${{ secrets.GAS_URL }}
           GOOGLE_ID: ${{ secrets.GOOGLE_ID }}
           GOOGLE_PW: ${{ secrets.GOOGLE_PW }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python main.py
