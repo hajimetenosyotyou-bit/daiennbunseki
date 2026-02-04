@@ -1,66 +1,49 @@
 import os
-import base64
 import requests
-import json
+import google.generativeai as genai
 from playwright.sync_api import sync_playwright
-from openai import OpenAI
-
-# 1. 設定情報の読み込み（GitHubのSecretsから取得）
-GAS_URL = "https://script.google.com/a/macros/ssu.ac.jp/s/AKfycbwl6Mu0DnTO6JIrgLb2D8MLFqp6o3rPqrfT_mYUWW_4irDp692mhZEg5wfGEOSrDlAVAg/exec"
-GOOGLE_ID = os.environ.get("GOOGLE_ID")
-GOOGLE_PW = os.environ.get("GOOGLE_PW")
-OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 def run_agent():
+    # Geminiの設定
+    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+    model = genai.GenerativeModel('gemini-1.5-flash')
+
     with sync_playwright() as p:
-        # ブラウザ起動
+        print("Googleにログイン中...")
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context(viewport={'width': 1280, 'height': 1200})
+        context = browser.new_context(viewport={'width': 1280, 'height': 800})
         page = context.new_page()
 
-        print("Googleにログイン中...")
-        page.goto("https://accounts.google.com/ServiceLogin?hl=ja")
-        page.fill('input[type="email"]', GOOGLE_ID)
+        # Googleログイン処理
+        page.goto("https://accounts.google.com/")
+        page.fill('input[type="email"]', os.environ["GOOGLE_ID"])
         page.click('#identifierNext')
-        page.wait_for_timeout(3000)
-        page.fill('input[type="password"]', GOOGLE_PW)
+        page.wait_for_selector('input[type="password"]')
+        page.fill('input[type="password"]', os.environ["GOOGLE_PW"])
         page.click('#passwordNext')
-        page.wait_for_timeout(10000) 
+        page.wait_for_load_state('networkidle')
 
         print("ダッシュボードへ移動中...")
-        # 管理画面のURL
-        page.goto("https://business.google.com/locations") 
-        page.wait_for_timeout(7000)
-
-        # 撮影
-        screenshot_path = "capture.png"
-        page.screenshot(path=screenshot_path, full_page=True)
-        print("撮影完了")
-
-        # AI解析
-        client = OpenAI(api_key=OPENAI_API_KEY)
-        with open(screenshot_path, "rb") as f:
-            base64_img = base64.b64encode(f.read()).decode('utf-8')
-            
-        print("AIが解析中...")
-        response = client.chat.completions.create(
-            model="gpt-4o",
-            messages=[{
-                "role": "user",
-                "content": [
-                    {"type": "text", "text": "画像から『表示回数』『検索数』『合計アクション数』を数値(int)で、考察をinsight(text)としてJSON形式(keys: views, searches, actions, insight)で抽出して。数値のみ返して。"},
-                    {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{base64_img}"}}
-                ]
-            }],
-            response_format={ "type": "json_object" }
-        )
+        # ビジネスプロフィールのURLへ（ここはご自身の環境に合わせて調整が必要な場合があります）
+        page.goto("https://business.google.com/locations")
+        page.wait_for_timeout(5000)
         
-        result = json.loads(response.choices[0].message.content)
-        print(f"解析結果: {result}")
+        print("撮影完了")
+        screenshot_path = "evidence.png"
+        page.screenshot(path=screenshot_path)
 
-        # GASに送信
-        response_gas = requests.post(GAS_URL, json=result)
-        print(f"GAS送信結果: {response_gas.status_code}")
+        print("AIが解析中...")
+        # 画像を読み込んでGeminiで解析
+        sample_file = genai.upload_file(path=screenshot_path, display_name="MEO Screen")
+        response = model.generate_content([sample_file, "このGoogleビジネスプロフィールの数値を読み取り、前日との差分や改善点を日本語で短く分析してください。"])
+        analysis_result = response.text
+
+        # GASへ送信
+        print("スプレッドシートへ送信中...")
+        requests.post(os.environ["GAS_URL"], json={"message": analysis_result})
+        
+        browser.close()
+        print("すべての工程が完了しました！")
 
 if __name__ == "__main__":
     run_agent()
