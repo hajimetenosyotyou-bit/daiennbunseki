@@ -1,4 +1,4 @@
-name: API Check and Analysis
+name: MEO Analysis Final
 
 on:
   workflow_dispatch:
@@ -13,8 +13,7 @@ jobs:
           python-version: '3.10'
       - name: Install dependencies
         run: |
-          # google-genai (最新版) を確実にインストール
-          pip install google-genai requests playwright
+          pip install google-generativeai requests playwright
           playwright install chromium
       - name: Run
         env:
