@@ -1,27 +1,32 @@
-name: Daily MEO Check
+name: MEO Dashboard Analysis
 
 on:
-  workflow_dispatch:
-  schedule:
-    - cron: '0 0 * * *' # 日本時間午前9時
+  workflow_dispatch:  # 手動実行用ボタン
 
 jobs:
-  run-agent:
+  build:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: '3.10'
+
       - name: Install dependencies
         run: |
-          pip install playwright requests google-generativeai
+          python -m pip install --upgrade pip
+          # 新しいライブラリ google-genai をここで指定
+          pip install google-genai requests playwright
           playwright install chromium
-      - name: Run script
+
+      - name: Run analysis script
         env:
-          GAS_URL: ${{ secrets.GAS_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GOOGLE_ID: ${{ secrets.GOOGLE_ID }}
           GOOGLE_PW: ${{ secrets.GOOGLE_PW }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GAS_URL: ${{ secrets.GAS_URL }}
         run: python main.py
