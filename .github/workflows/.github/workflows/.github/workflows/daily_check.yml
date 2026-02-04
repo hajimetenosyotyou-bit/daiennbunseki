@@ -19,8 +19,8 @@ jobs:
           playwright install chromium
       - name: Run script
         env:
-          GAS_URL: ${{ secrets.https://script.google.com/a/macros/ssu.ac.jp/s/AKfycbwl6Mu0DnTO6JIrgLb2D8MLFqp6o3rPqrfT_mYUWW_4irDp692mhZEg5wfGEOSrDlAVAg/exec }}
-          GOOGLE_ID: ${{ secrets.f1836014@ssu.ac.jp }}
-          GOOGLE_PW: ${{ secrets.25SndWpD }}
-          OPENAI_API_KEY: ${{ secrets.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 }}
+          GAS_URL: ${{ secrets.GAS_URL }}
+          GOOGLE_ID: ${{ secrets.GOOGLE_ID }}
+          GOOGLE_PW: ${{ secrets.GOOGLE_PW }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: python main.py
