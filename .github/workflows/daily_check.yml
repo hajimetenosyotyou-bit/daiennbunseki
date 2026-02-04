@@ -1,4 +1,5 @@
 name: Daily MEO Check
+
 on:
   workflow_dispatch:
   schedule:
@@ -15,12 +16,12 @@ jobs:
           python-version: '3.11'
       - name: Install dependencies
         run: |
-          pip install playwright requests openai
+          pip install playwright requests google-generativeai
           playwright install chromium
       - name: Run script
         env:
           GAS_URL: ${{ secrets.GAS_URL }}
           GOOGLE_ID: ${{ secrets.GOOGLE_ID }}
           GOOGLE_PW: ${{ secrets.GOOGLE_PW }}
-         GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: python main.py
